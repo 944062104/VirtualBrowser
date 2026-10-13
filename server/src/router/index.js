@@ -118,6 +118,19 @@ export const constantRoutes = [
         meta: { title: 'crx_list', icon: 'component', affix: true }
       }
     ]
+  },
+  {
+    path: '/api-service',
+    component: Layout,
+    redirect: '/api-service/index',
+    children: [
+      {
+        path: 'index',
+        component: require('@/views/api/index').default,
+        name: 'ApiService',
+        meta: { title: 'api_service', icon: 'documentation', affix: true }
+      }
+    ]
   }
 ]
 

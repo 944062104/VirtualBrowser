@@ -8,6 +8,7 @@ export default {
     crx_store: '插件市场',
     crx_upload: '插件上传',
     crx_list: '插件管理',
+    api_service: 'API与MCP服务',
     guide: '引导页',
     permission: '权限测试页',
     rolePermission: '角色权限',

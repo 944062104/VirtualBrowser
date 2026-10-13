@@ -4,6 +4,7 @@ export default {
     browser: 'Browser',
     browser_list: 'List',
     group: 'Group',
+    api_service: 'API & MCP Service',
     guide: 'Guide',
     permission: 'Permission',
     rolePermission: 'Role Permission',

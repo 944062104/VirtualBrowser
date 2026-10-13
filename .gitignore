@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller / Build
+api_server/build/
+api_server/dist/
+*.spec.bak
+
+# Node / Web
+node_modules/
+dist/
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# Screenshots / Temporary test outputs
+chatgpt_hello_success.png
+chatgpt_test.png
