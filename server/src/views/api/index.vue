@@ -133,7 +133,7 @@ export default {
           mcpServers: {
             'virtual-browser': {
               command: 'python',
-              args: ['E:\\openProject\\VirtualBrowser\\api_server\\mcp_server.py']
+              args: ['<VirtualBrowser路径>/api_server/mcp_server.py']
             }
           }
         },

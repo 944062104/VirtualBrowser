@@ -10,11 +10,11 @@
 ## 🚀 快速启动
 
 ### 方式 1：双击批处理一键启动（推荐）
-直接双击运行 [`start_api.bat`](file:///E:/openProject/VirtualBrowser/api_server/start_api.bat)。
+直接双击运行 `start_api.bat`。
 
 ### 方式 2：命令行启动
 ```bash
-cd E:\openProject\VirtualBrowser\api_server
+cd api_server
 python server.py
 ```
 
@@ -37,7 +37,7 @@ python server.py
   "mcpServers": {
     "virtual-browser": {
       "command": "python",
-      "args": ["E:\\openProject\\VirtualBrowser\\api_server\\mcp_server.py"]
+      "args": ["<VirtualBrowser路径>\\api_server\\mcp_server.py"]
     }
   }
 }
@@ -45,7 +45,7 @@ python server.py
 
 - **Claude Desktop**：编辑 `%APPDATA%\Claude\claude_desktop_config.json`
 - **Cursor**：在 Settings -> Features -> MCP 中添加 `virtual-browser`
-- **Antigravity / Cline**：在 MCP 配置界面添加 Command 为 `python`，Args 为 `["E:\\openProject\\VirtualBrowser\\api_server\\mcp_server.py"]`
+- **Antigravity / Cline**：在 MCP 配置界面添加 Command 为 `python`，Args 为 `["<VirtualBrowser路径>\\api_server\\mcp_server.py"]`
 
 ### 模式 B：HTTP / SSE 模式
 启动 `server.py` 后，MCP 客户端直接连接：
