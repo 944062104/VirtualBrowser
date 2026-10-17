@@ -12,6 +12,7 @@ import json
 import os
 import random
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -20,11 +21,27 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import psutil
+
 # -------------------- Path Configuration --------------------
-LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
-VB_USER_DATA_DIR = Path(LOCAL_APP_DATA) / "VirtualBrowser" / "User Data"
-VB_WORKERS_DIR = Path(LOCAL_APP_DATA) / "VirtualBrowser" / "Workers"
-VB_EXTENSIONS_DIR = Path(LOCAL_APP_DATA) / "VirtualBrowser" / "Extensions"
+def get_vb_base_dir() -> Path:
+    """Return base directory for VirtualBrowser user data, cross-platform with env override."""
+    custom_dir = os.environ.get("VB_DATA_DIR")
+    if custom_dir:
+        return Path(custom_dir).expanduser().resolve()
+    if sys.platform == "win32":
+        local_app = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
+        return Path(local_app) / "VirtualBrowser"
+    elif sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "VirtualBrowser"
+    else:  # Linux / Docker
+        return Path.home() / ".config" / "VirtualBrowser"
+
+
+VB_BASE_DIR = get_vb_base_dir()
+VB_USER_DATA_DIR = VB_BASE_DIR / "User Data"
+VB_WORKERS_DIR = VB_BASE_DIR / "Workers"
+VB_EXTENSIONS_DIR = VB_BASE_DIR / "Extensions"
 
 VIRTUAL_DAT = VB_USER_DATA_DIR / "virtual.dat"
 GLOBAL_DAT = VB_USER_DATA_DIR / "global.dat"
@@ -42,38 +59,67 @@ CANDIDATE_EXE_PATHS = [
 
 
 def find_browser_executable() -> Path:
-    """Find the core VirtualBrowser Chromium executable."""
+    """Find the core VirtualBrowser Chromium executable cross-platform."""
+    # 1. Environment variable override (highest priority, ideal for Docker/Linux deployments)
+    env_path = os.environ.get("VB_EXE_PATH")
+    if env_path:
+        p = Path(env_path).expanduser().resolve()
+        if p.exists():
+            return p
+
+    # 2. Known Windows candidate paths
     for p in CANDIDATE_EXE_PATHS:
         if p.exists():
             return p
 
-    # Dynamic search in Program Files
-    for base in [
-        Path(r"D:\Program Files\VirtualBrowser"),
-        Path(r"C:\Program Files\VirtualBrowser"),
-        Path(LOCAL_APP_DATA) / "Programs" / "VirtualBrowser",
-    ]:
-        if base.exists():
-            matches = list(base.glob("**/VirtualBrowser.exe"))
-            for m in matches:
-                # Need inner Chromium executable, not electron wrapper
-                if m.parent.name != "VirtualBrowser" or "resources" not in str(m):
-                    if (m.parent / "chrome.dll").exists() or (m.parent / "chromedriver.exe").exists():
-                        return m
+    # 3. Dynamic search
+    if sys.platform == "win32":
+        local_app = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
+        for base in [
+            Path(r"D:\Program Files\VirtualBrowser"),
+            Path(r"C:\Program Files\VirtualBrowser"),
+            Path(local_app) / "Programs" / "VirtualBrowser",
+        ]:
+            if base.exists():
+                matches = list(base.glob("**/VirtualBrowser.exe"))
+                for m in matches:
+                    if m.parent.name != "VirtualBrowser" or "resources" not in str(m):
+                        if (m.parent / "chrome.dll").exists() or (m.parent / "chromedriver.exe").exists():
+                            return m
+    else:
+        # Linux standard install / unpack candidate locations
+        linux_candidates = [
+            Path("/opt/VirtualBrowser/VirtualBrowser"),
+            Path("/opt/virtualbrowser/VirtualBrowser"),
+            Path("/usr/local/bin/virtualbrowser"),
+            Path("/usr/bin/virtualbrowser"),
+            Path.home() / "VirtualBrowser" / "VirtualBrowser",
+            Path.home() / ".local/share/VirtualBrowser/VirtualBrowser",
+        ]
+        for lp in linux_candidates:
+            if lp.exists() and os.access(lp, os.X_OK):
+                return lp
 
-    raise FileNotFoundError("未找到 VirtualBrowser Chromium 内核执行程序 (VirtualBrowser.exe)")
+        which_path = shutil.which("virtualbrowser") or shutil.which("VirtualBrowser")
+        if which_path:
+            return Path(which_path)
+
+    raise FileNotFoundError("未找到 VirtualBrowser Chromium 内核执行程序 (可通过环境变量 VB_EXE_PATH 指定)")
 
 
 def get_core_versions() -> List[str]:
     """Get installed Chromium core versions."""
     versions: List[str] = []
-    for base in [
-        Path(r"D:\Program Files\VirtualBrowser\VirtualBrowser"),
-        Path(r"C:\Program Files\VirtualBrowser\VirtualBrowser"),
-    ]:
+    bases = (
+        [Path(r"D:\Program Files\VirtualBrowser\VirtualBrowser"), Path(r"C:\Program Files\VirtualBrowser\VirtualBrowser")]
+        if sys.platform == "win32"
+        else [Path("/opt/VirtualBrowser"), Path("/opt/virtualbrowser")]
+    )
+    exe_name = "VirtualBrowser.exe" if sys.platform == "win32" else "VirtualBrowser"
+    for base in bases:
         if base.exists():
             for child in base.iterdir():
-                if child.is_dir() and (child / "VirtualBrowser.exe").exists():
+                if child.is_dir() and (child / exe_name).exists():
                     versions.append(child.name)
     if not versions:
         versions = ["154.0.8037.98"]
@@ -186,20 +232,24 @@ def sync_worker_profile_files(worker_id: Union[int, str]) -> None:
 
 
 def cleanup_profile_locks(worker_id: Union[int, str]) -> None:
-    """清理异常残留的锁定文件，防止浏览器启动闪退。"""
+    """清理异常残留的锁定文件及软链接，防止浏览器启动闪退。"""
     wid = str(worker_id)
     worker_dir = VB_WORKERS_DIR / wid
     lock_targets = [
         worker_dir / "LOCK",
         worker_dir / "SingletonLock",
+        worker_dir / "SingletonSocket",
+        worker_dir / "SingletonCookie",
         worker_dir / "lockfile",
         worker_dir / "Default" / "LOCK",
         worker_dir / "Default" / "SingletonLock",
+        worker_dir / "Default" / "SingletonSocket",
+        worker_dir / "Default" / "SingletonCookie",
         worker_dir / "Default" / "lockfile",
     ]
     for p in lock_targets:
         try:
-            if p.exists():
+            if p.is_symlink() or p.exists():
                 p.unlink()
         except Exception:
             pass
@@ -288,16 +338,20 @@ def clean_dead_browsers() -> None:
 
 
 def kill_process_tree(pid: int) -> None:
-    """Force kill a process and its child processes on Windows."""
+    """跨平台强杀指定进程及其所有子孙进程 (基于纯 Python psutil，无 taskkill/kill 差异)。"""
     try:
-        subprocess.run(
-            ["taskkill", "/F", "/T", "/PID", str(pid)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
+        proc = psutil.Process(pid)
+        children = proc.children(recursive=True)
+        for child in children:
+            try:
+                child.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        proc.kill()
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
     except Exception as e:
-        print(f"[Warn] taskkill pid={pid} error: {e}")
+        print(f"[Warn] kill_process_tree pid={pid} error: {e}")
 
 
 # -------------------- Template Generator --------------------
@@ -493,12 +547,21 @@ async def do_launch_browser(
     if target_url:
         cmd.append(str(target_url))
 
+    # Linux / 容器环境下必要参数适配
+    if sys.platform != "win32":
+        for flag in ("--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"):
+            if flag not in cmd:
+                cmd.append(flag)
+
     # 清理残留锁
     cleanup_profile_locks(str_id)
 
     # 7. 启动子进程
     try:
-        proc = subprocess.Popen(cmd)
+        popen_kwargs: Dict[str, Any] = {}
+        if sys.platform != "win32":
+            popen_kwargs["preexec_fn"] = os.setsid
+        proc = subprocess.Popen(cmd, **popen_kwargs)
     except Exception as e:
         return {"success": False, "msg": f"启动浏览器进程失败: {e}", "data": None}
 
