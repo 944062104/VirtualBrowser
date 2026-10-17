@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-exe = r"D:\Program Files\VirtualBrowser\VirtualBrowser\151.0.7922.47\VirtualBrowser.exe"
+exe = r"D:\Program Files\VirtualBrowser\VirtualBrowser\154.0.8037.98\VirtualBrowser.exe"
 user_data = os.path.expandvars(r"%LOCALAPPDATA%\VirtualBrowser\Workers\1")
 
 # Clean leftover locks

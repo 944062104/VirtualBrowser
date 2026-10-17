@@ -37,3 +37,8 @@ dist/
 # Screenshots / Temporary test outputs
 chatgpt_hello_success.png
 chatgpt_test.png
+
+# Local automation & test scripts
+auto_login_chatgpt_pool.py
+generate_beach_girl_image.py
+

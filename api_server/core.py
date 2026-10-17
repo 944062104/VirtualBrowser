@@ -32,7 +32,9 @@ EXTENSIONS_DAT = VB_USER_DATA_DIR / "extensions.json"
 
 # Candidate paths for VirtualBrowser executable
 CANDIDATE_EXE_PATHS = [
+    Path(r"D:\Program Files\VirtualBrowser\VirtualBrowser\154.0.8037.98\VirtualBrowser.exe"),
     Path(r"D:\Program Files\VirtualBrowser\VirtualBrowser\151.0.7922.47\VirtualBrowser.exe"),
+    Path(r"C:\Program Files\VirtualBrowser\VirtualBrowser\154.0.8037.98\VirtualBrowser.exe"),
     Path(r"C:\Program Files\VirtualBrowser\VirtualBrowser\151.0.7922.47\VirtualBrowser.exe"),
     Path(r"D:\VirtualBrowser\Chrome-bin\VirtualBrowser.exe"),
     Path(r"C:\VirtualBrowser\Chrome-bin\VirtualBrowser.exe"),
@@ -74,7 +76,7 @@ def get_core_versions() -> List[str]:
                 if child.is_dir() and (child / "VirtualBrowser.exe").exists():
                     versions.append(child.name)
     if not versions:
-        versions = ["151.0.7922.47"]
+        versions = ["154.0.8037.98"]
     return sorted(list(set(versions)))
 
 
