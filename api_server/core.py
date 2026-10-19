@@ -605,7 +605,25 @@ async def do_stop_browser(bid: Union[int, str]) -> Dict[str, Any]:
 
     if str_id in running_browsers:
         instance = running_browsers.pop(str_id)
-        kill_process_tree(instance.pid)
+        # 1. 优先尝试通过 CDP 发送 Browser.close 优雅关闭，确保 Chromium 将所有 Cookie 刷盘落锁
+        try:
+            import websockets
+            async def _send_cdp_close():
+                async with websockets.connect(instance.ws_url, close_timeout=1) as ws:
+                    await ws.send(json.dumps({"id": 1, "method": "Browser.close"}))
+            await asyncio.wait_for(_send_cdp_close(), timeout=1.5)
+            # 等待最多 3 秒让 Chromium 正常刷盘并退出
+            for _ in range(30):
+                if instance.proc.poll() is not None:
+                    break
+                await asyncio.sleep(0.1)
+        except Exception:
+            pass
+
+        # 2. 若超时仍未退出，兜底强杀
+        if instance.proc.poll() is None:
+            kill_process_tree(instance.pid)
+
         update_browser_running_status_in_dat(str_id, False)
         return {"success": True, "msg": "关闭成功"}
 
